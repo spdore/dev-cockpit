@@ -82,30 +82,27 @@ A single-page overview of your day:
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/dev-cockpit.git
+git clone https://github.com/spdore/dev-cockpit.git
 cd dev-cockpit
 npm install
 ```
 
 ### Configuration
 
-1. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-2. Open `http://localhost:3000`
-3. Go to **Settings** → paste your Gemini API Key
-4. The database auto-creates on first launch with demo data
-
-### Reset Database
-
 ```bash
-node scripts/reset-db.js
+npm run dev
 ```
-Clears all data while preserving your API key and settings.
 
-### One-Click Start (Windows)
-Double-click `start.bat` — it checks Node.js, installs dependencies, and starts the server.
+Open `http://localhost:3000` → go to **Settings** → paste your Gemini API Key.
+
+The database and all tables are automatically created on first launch. The database starts empty — you build it your way from day one.
+
+### Database
+
+The database file lives at `database/dev-cockpit.db` and is ignored by Git. The schema is defined in `database/schema.sql` — tracked in version control so every clone gets the same table structure.
+
+- To **start fresh**, delete `database/dev-cockpit.db` and restart the server.
+- To **back up**, copy the `database/` folder.
 
 ---
 
@@ -123,7 +120,7 @@ src/
 │   ├── settings/           # Settings page
 │   └── api/                # REST API endpoints
 ├── core/                   # Domain logic (framework-agnostic)
-│   ├── database/           # DB connection, schema, seed
+│   ├── database/           # DB connection
 │   ├── entities/           # TypeScript types & DTOs
 │   ├── repositories/       # Data access layer
 │   └── services/           # Business logic
@@ -158,9 +155,7 @@ src/
 | `README.md` | English documentation (this file) |
 | `README_ZH.md` | Chinese documentation |
 | `DEVCOCKPIT_SPEC.md` | Data model reference & AI import workflow (bilingual) |
-| `start.bat` | Windows one-click launcher |
-| `reset-db.bat` | Windows DB reset script |
-| `scripts/reset-db.js` | Cross-platform DB reset script |
+| `database/schema.sql` | Database schema — auto-executed on first launch |
 
 ## License
 

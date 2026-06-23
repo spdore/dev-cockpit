@@ -40,7 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local database (all files)
-database/
+# local database files — schema.sql is tracked
+database/*
+!database/schema.sql
+*.db
+*.db-shm
+*.db-wal
 
 /src/generated/prisma

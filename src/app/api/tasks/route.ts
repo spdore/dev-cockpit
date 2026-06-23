@@ -3,11 +3,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { seedDatabase } from "@/core/database/seed";
 import { taskService } from "@/core/services/service-factory";
 import { jsonBody, created } from "@/shared/api-helpers";
 import { wrapHandler } from "@/shared/api-helpers";
-seedDatabase();
 
 /** GET /api/tasks — List all tasks with project info. */
 export const GET = wrapHandler(async () => {

@@ -80,30 +80,27 @@
 ### 安装
 
 ```bash
-git clone https://github.com/your-username/dev-cockpit.git
+git clone https://github.com/spdore/dev-cockpit.git
 cd dev-cockpit
 npm install
 ```
 
 ### 配置
 
-1. 启动开发服务器：
-   ```bash
-   npm run dev
-   ```
-2. 浏览器打开 `http://localhost:3000`
-3. 进入 **设置** 页面 → 粘贴 Gemini API Key
-4. 首次启动自动创建数据库并填充示例数据
-
-### 重置数据库
-
 ```bash
-node scripts/reset-db.js
+npm run dev
 ```
-清空所有业务数据，保留 API Key 和主题设置。
 
-### Windows 一键启动
-双击 `start.bat`，自动检查环境、安装依赖、启动服务。
+浏览器打开 `http://localhost:3000` → 进入 **设置** 页面 → 粘贴 Gemini API Key。
+
+首次启动时自动创建数据库和所有表结构。数据库从空开始，由你亲手构建。
+
+### 数据库
+
+数据库文件位于 `database/dev-cockpit.db`，已加入 `.gitignore`，不会提交到版本库。建表语句统一维护在 `database/schema.sql`，纳入 Git 追踪，确保任何人 clone 项目后都能获得一致的表结构。
+
+- **重新开始**：删除 `database/dev-cockpit.db`，重启服务即可。
+- **备份数据**：复制 `database/` 目录即可。
 
 ---
 
@@ -121,7 +118,7 @@ src/
 │   ├── settings/           # 系统设置
 │   └── api/                # REST API
 ├── core/                   # 领域逻辑（框架无关）
-│   ├── database/           # 数据库连接、建表、种子
+│   ├── database/           # 数据库连接
 │   ├── entities/           # 类型定义
 │   ├── repositories/       # 数据访问层
 │   └── services/           # 业务逻辑
@@ -156,9 +153,7 @@ src/
 | `README.md` | 英文文档 |
 | `README_ZH.md` | 中文文档（本文件） |
 | `DEVCOCKPIT_SPEC.md` | 数据结构规范 & AI 导入模板（中英双语） |
-| `start.bat` | Windows 一键启动脚本 |
-| `reset-db.bat` | Windows 数据库重置脚本 |
-| `scripts/reset-db.js` | 跨平台数据库重置脚本 |
+| `database/schema.sql` | 数据库建表脚本，首次启动时自动执行 |
 
 ## 许可证
 

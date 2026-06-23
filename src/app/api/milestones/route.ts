@@ -3,11 +3,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { seedDatabase } from "@/core/database/seed";
 import { milestoneService } from "@/core/services/service-factory";
 import { jsonBody, ok, created } from "@/shared/api-helpers";
 import { wrapHandler } from "@/shared/api-helpers";
-seedDatabase();
 
 export const GET = wrapHandler(async () => {
   return NextResponse.json(milestoneService.getAllMilestones());
