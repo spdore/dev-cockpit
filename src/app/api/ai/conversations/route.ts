@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { chatService } from "@/core/services/service-factory";
 import { wrapHandler } from "@/shared/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 /** GET /api/ai/conversations — List all conversations. */
 export const GET = wrapHandler(async () => {
   return NextResponse.json(chatService.getConversations());

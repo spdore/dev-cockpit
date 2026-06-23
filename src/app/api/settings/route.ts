@@ -7,6 +7,8 @@ import { settingsService } from "@/core/services/service-factory";
 import { jsonBody } from "@/shared/api-helpers";
 import { wrapHandler } from "@/shared/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 /** GET /api/settings — All settings (API key decrypted). */
 export const GET = wrapHandler(async () => {
   const settings = settingsService.getAllSettings();

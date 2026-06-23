@@ -7,6 +7,8 @@ import { taskService } from "@/core/services/service-factory";
 import { jsonBody, created } from "@/shared/api-helpers";
 import { wrapHandler } from "@/shared/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 /** GET /api/tasks — List all tasks with project info. */
 export const GET = wrapHandler(async () => {
   const tasks = taskService.getAllTasks();

@@ -7,6 +7,8 @@ import { milestoneService } from "@/core/services/service-factory";
 import { jsonBody, ok, created } from "@/shared/api-helpers";
 import { wrapHandler } from "@/shared/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 export const GET = wrapHandler(async () => {
   return NextResponse.json(milestoneService.getAllMilestones());
 });

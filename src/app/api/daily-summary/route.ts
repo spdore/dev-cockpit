@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dailySummaryService } from "@/core/services/service-factory";
 import { jsonBody, created } from "@/shared/api-helpers";
+
+export const dynamic = "force-dynamic";
 import { wrapHandler } from "@/shared/api-helpers";
 import type { DailySummaryInput } from "@/core/entities";
 

@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { chatService } from "@/core/services/service-factory";
 import { wrapHandler } from "@/shared/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 /** GET /api/ai/history?conversation_id=... — Fetch messages. */
 export const GET = wrapHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);

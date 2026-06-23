@@ -7,6 +7,8 @@ import { taskService } from "@/core/services/service-factory";
 import { jsonBody, pathId, ok } from "@/shared/api-helpers";
 import { wrapHandler } from "@/shared/api-helpers";
 
+export const dynamic = "force-dynamic";
+
 /** PATCH /api/tasks/:id — Update a task's fields. */
 export const PATCH = wrapHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const id = await pathId(params);
