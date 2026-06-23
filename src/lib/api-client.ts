@@ -46,4 +46,5 @@ export const api = {
   deleteProject:   (id: string) => request<{ ok: true }>(`/projects/${id}`, { method: "DELETE" }),
   getProjectTasks: (id: string) => request<{ project: ProjectData; tasks: TaskData[] }>(`/projects/${id}`),
   addDailySummary: (body: { date: string; content: string; workHours: number; mood: string }) => request<{ id: string }>("/daily-summary", { method: "POST", body: JSON.stringify(body) }),
+  getDailySummaries: () => request<{ workHoursToday: number; todaySummary: { content: string; mood: string } | null; weekSummaries: { date: string; content: string; workHours: number; mood: string }[] }>("/daily-summary"),
 };

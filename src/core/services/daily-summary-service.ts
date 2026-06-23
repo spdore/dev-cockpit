@@ -8,11 +8,11 @@ import type { StatusStats, DailySummaryInput } from "@/core/entities";
 export class DailySummaryService {
   constructor(private readonly summaryRepo: DailySummaryRepository) {}
 
-  /** Get today's status + this week's summaries. */
+  /** Get today's status + all summaries (for journal page). */
   getStatusStats(): StatusStats {
     const todayStr = new Date().toISOString().split("T")[0]!;
     const today = this.summaryRepo.findByDate(todayStr);
-    const weekSummaries = this.summaryRepo.findRecent(7);
+    const weekSummaries = this.summaryRepo.findAll();
 
     return {
       workHoursToday: today?.workHours ?? 0,

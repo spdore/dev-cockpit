@@ -31,6 +31,14 @@ export class DailySummaryRepository extends BaseRepository {
     return rows.map(mapDailySummary);
   }
 
+  /** Get all summaries, newest first. */
+  findAll(): DailySummary[] {
+    const rows = this.db
+      .prepare("SELECT * FROM daily_summaries ORDER BY date DESC")
+      .all() as Record<string, unknown>[];
+    return rows.map(mapDailySummary);
+  }
+
   /** Insert or replace a daily summary (upsert). */
   upsert(input: DailySummaryInput): string {
     const id = `ds-${input.date}`;

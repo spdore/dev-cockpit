@@ -14,8 +14,8 @@ interface Summary { date: string; content: string; workHours: number; mood: stri
 const MOODS = ["😊","💪","🤔","😎","😤","🌴","🎨","🧐","😴","🤩"];
 
 export default function JournalPage() {
-  const { data: dash, mutate } = useSWR("dashboard", api.getDashboard);
-  const summaries: Summary[] = dash?.statusStats?.weekSummaries ?? [];
+  const { data: statusData, mutate } = useSWR("daily-summary", api.getDailySummaries);
+  const summaries: Summary[] = statusData?.weekSummaries ?? [];
   const today = new Date().toISOString().split("T")[0]!;
 
   const [editing, setEditing] = useState<Summary | null>(null);
