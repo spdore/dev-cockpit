@@ -13,7 +13,6 @@ export function useDashboard() {
     heatmapData: data?.heatmapData ?? [],
     achievements: data?.achievements ?? [],
     activeTasks: data?.activeTasks ?? [],
-    milestones: data?.milestones ?? [],
     isLoading: !data && !error,
     isError: !!error,
     mutate,

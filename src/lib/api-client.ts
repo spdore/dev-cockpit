@@ -29,7 +29,6 @@ export interface DashboardData {
   heatmapData: { date: string; hours: number; level: number }[];
   achievements: { id: string; title: string; description: string; icon: string; conditionType: string; conditionValue: number; unlockedAt: string | null }[];
   activeTasks: { id: string; priority: string; project: { id: string; name: string; color: string }; title: string; status: string; dueDate?: string }[];
-  milestones: { id: string; projectId: string; projectName: string; projectColor: string; title: string; targetDate: string; progress: number; daysLeft: number }[];
 }
 
 export const api = {

@@ -106,6 +106,12 @@ export class TaskRepository extends BaseRepository {
       }
     }
 
+    // Auto-set completedAt when marking as done and not explicitly provided
+    if (input.status === "done" && input.completedAt === undefined) {
+      sets.push("completed_at = ?");
+      vals.push(new Date().toISOString());
+    }
+
     if (sets.length === 0) return;
 
     vals.push(id);

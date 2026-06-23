@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,17 +16,38 @@ interface StatusCardProps {
 }
 
 const MOODS = ["😊","💪","🤔","😎","😤","🌴","🎨","🧐","😴","🤩"];
+const LABEL_HEIGHT = 28; // px reserved for top + bottom labels per column
+const MIN_BAR_PX = 2;
+const MIN_ACTIVE_PX = 6;
 
 export function CognitiveCard({ stats, onAddSummary }: StatusCardProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [content, setContent] = useState("");
   const [hours, setHours] = useState("");
   const [mood, setMood] = useState("😊");
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartHeight, setChartHeight] = useState(0);
+
+  const measure = useCallback(() => {
+    if (chartRef.current) {
+      const h = chartRef.current.getBoundingClientRect().height;
+      if (h > 0 && h !== chartHeight) setChartHeight(h);
+    }
+  }, [chartHeight]);
+
+  useEffect(() => {
+    measure();
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [measure]);
 
   const handleSubmit = () => { if (!content.trim()) return; onAddSummary?.({ date: `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`, content, workHours: parseFloat(hours) || 0, mood }); setContent(""); setHours(""); setMood("😊"); setShowDialog(false); };
 
   const todayMood = stats.todaySummary?.mood || "📝";
   const { days: weekDays, totalWeekHours, maxHours: maxH } = useWeekChart(stats.weekSummaries);
+
+  const barMaxPx = Math.max(chartHeight - LABEL_HEIGHT, MIN_BAR_PX);
 
   return (
     <Card className="flex flex-col h-full">
@@ -50,13 +71,15 @@ export function CognitiveCard({ stats, onAddSummary }: StatusCardProps) {
         {/* Current week bar chart */}
         <div className="space-y-1.5 border-t border-border pt-3 flex-1 flex flex-col justify-end">
           <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1 shrink-0"><TrendingUp className="h-3 w-3" />本周每日工时</p>
-          <div className="flex items-end gap-1 flex-1 min-h-[60px]">
+          <div ref={chartRef} className="flex items-end gap-1 flex-1 min-h-[60px]">
             {weekDays.map(d => {
               const ratio = maxH > 0 ? d.workHours / maxH : 0;
-              const h = Math.max(ratio * 100, d.workHours > 0 ? 8 : 2);
+              const barPx = d.workHours > 0
+                ? Math.max(ratio * barMaxPx, MIN_ACTIVE_PX)
+                : MIN_BAR_PX;
               return (
-                <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5 h-full justify-end" title={`${d.date}: ${d.workHours}h ${d.mood}`}>
-                  <span className={`text-[9px] tabular-nums font-medium ${d.isToday ? "text-emerald-400" : ""}`}>
+                <div key={d.date} className="flex-1 flex flex-col items-center justify-end" title={`${d.date}: ${d.workHours}h ${d.mood}`}>
+                  <span className={`text-[9px] tabular-nums font-medium leading-none mb-0.5 ${d.isToday ? "text-emerald-400" : ""}`}>
                     {d.workHours > 0 ? d.workHours.toFixed(1) + "h" : ""}
                   </span>
                   <div
@@ -67,9 +90,9 @@ export function CognitiveCard({ stats, onAddSummary }: StatusCardProps) {
                           ? "bg-primary/30"
                           : "bg-muted/30"
                     }`}
-                    style={{ height: `${h}%` }}
+                    style={{ height: `${barPx}px` }}
                   />
-                  <span className={`text-[8px] ${d.isToday ? "text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                  <span className={`text-[8px] leading-none mt-0.5 ${d.isToday ? "text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
                     {d.label}
                   </span>
                 </div>

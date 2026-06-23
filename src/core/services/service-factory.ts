@@ -12,7 +12,6 @@ import { getDb } from "@/core/database/connection";
 import {
   ProjectRepository,
   TaskRepository,
-  MilestoneRepository,
   AchievementRepository,
   DailySummaryRepository,
   ChatRepository,
@@ -23,7 +22,6 @@ import {
 import { ProjectService } from "./project-service";
 import { TaskService } from "./task-service";
 import { DashboardService } from "./dashboard-service";
-import { MilestoneService } from "./milestone-service";
 import { DailySummaryService } from "./daily-summary-service";
 import { ChatService } from "./chat-service";
 import { SettingsService } from "./settings-service";
@@ -34,7 +32,6 @@ const db = getDb();
 // ── Repositories ──
 const projectRepo = new ProjectRepository(db);
 const taskRepo = new TaskRepository(db);
-const milestoneRepo = new MilestoneRepository(db);
 const achievementRepo = new AchievementRepository(db);
 const dailySummaryRepo = new DailySummaryRepository(db);
 const chatRepo = new ChatRepository(db);
@@ -44,8 +41,7 @@ const settingsRepo = new SettingsRepository(db);
 
 export const projectService = new ProjectService(projectRepo, taskRepo);
 export const taskService = new TaskService(taskRepo, projectRepo);
-export const dashboardService = new DashboardService(taskRepo, projectRepo, achievementRepo, dailySummaryRepo, milestoneRepo);
-export const milestoneService = new MilestoneService(milestoneRepo);
+export const dashboardService = new DashboardService(taskRepo, projectRepo, achievementRepo, dailySummaryRepo);
 export const dailySummaryService = new DailySummaryService(dailySummaryRepo);
 export const chatService = new ChatService(chatRepo);
 export const settingsService = new SettingsService(settingsRepo);

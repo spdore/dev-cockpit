@@ -74,7 +74,7 @@ export default function DashboardLoading() {
           </CardContent>
         </Card>
 
-        {/* Milestone */}
+        {/* Achievements */}
         <Card>
           <CardHeader>
             <Skeleton className="h-4 w-28" />

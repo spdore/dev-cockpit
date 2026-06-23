@@ -14,7 +14,7 @@ import Link from "next/link";
 interface ActionType { type: string; entity: string; data: Record<string, unknown>; executed?: boolean }
 interface ChatMessage { id?: number; role: string; content: string; action?: ActionType; actions?: ActionType[]; executed?: boolean; error?: string; }
 interface Conversation { id: string; title: string; createdAt: string; }
-interface MilestoneData { id: string; projectId: string; projectName: string; projectColor: string; title: string; targetDate: string; progress: number; daysLeft: number; }
+
 
 interface SSEEvent {
   type: "token" | "done" | "error";
@@ -29,8 +29,15 @@ interface SSEEvent {
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export default function AIPage() {
+  const aiProvider = useUIStore(s => s.aiProvider);
+  const aiModel = useUIStore(s => s.aiModel);
   const geminiApiKey = useUIStore(s => s.geminiApiKey);
-  const geminiModel = useUIStore(s => s.geminiModel);
+  const openaiApiKey = useUIStore(s => s.openaiApiKey);
+  const claudeApiKey = useUIStore(s => s.claudeApiKey);
+  const deepseekApiKey = useUIStore(s => s.deepseekApiKey);
+  const qwenApiKey = useUIStore(s => s.qwenApiKey);
+  const apiKeys: Record<string, string> = { gemini: geminiApiKey, openai: openaiApiKey, claude: claudeApiKey, deepseek: deepseekApiKey, qwen: qwenApiKey };
+  const currentApiKey = apiKeys[aiProvider] || "";
   const settingsLoaded = useUIStore(s => s.settingsLoaded);
   const [activeConv, setActiveConv] = useState<string>("");
   const [initialized, setInitialized] = useState(false);
@@ -56,19 +63,21 @@ export default function AIPage() {
   const { data: messages = [], mutate: mutateHistory } = useSWR<ChatMessage[]>(`/api/ai/history?conversation_id=${activeConv}`, fetcher);
   const { data: tasks = [], mutate: mutateTasks } = useSWR<TaskData[]>("tasks", api.getTasks);
   const { data: projects = [], mutate: mutateProjects } = useSWR<ProjectData[]>("projects", api.getProjects);
-  const { data: milestones = [], mutate: mutateMilestones } = useSWR<MilestoneData[]>("/api/milestones", fetcher);
+  const { data: summaries = [], mutate: mutateSummaries } = useSWR<{date:string;content:string;workHours:number;mood:string}[]>("/api/daily-summary", fetcher);
 
   /** Invalidate entity caches — each page revalidates on its own when mounted. */
   const invalidateCaches = useCallback(() => {
     mutateTasks();
     mutateProjects();
-    mutateMilestones();
-  }, [mutateTasks, mutateProjects, mutateMilestones]);
+    mutateSummaries();
+  }, [mutateTasks, mutateProjects, mutateSummaries]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /** Cache newly created project name→id for same-batch task resolution */
+  const freshProjectIds = useRef<Map<string, string>>(new Map());
 
   // Auto-resize textarea
   useEffect(() => {
@@ -89,14 +98,14 @@ export default function AIPage() {
 
   /** Generate a conversation title from the first user message using Gemini. */
   const autoTitle = useCallback(async (convId: string, firstMessage: string) => {
-    if (!geminiApiKey || !firstMessage.trim()) return;
+    if (!currentApiKey || !firstMessage.trim()) return;
     const conv = conversations.find(c => c.id === convId);
     // Only auto-title if the title is still generic
     if (!conv || !/^(新对话|对话 \d+)$/.test(conv.title)) return;
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(geminiApiKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(currentApiKey)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -117,7 +126,7 @@ export default function AIPage() {
         mutateConvs();
       }
     } catch { /* non-critical */ }
-  }, [geminiApiKey, conversations, mutateConvs]);
+  }, [currentApiKey, conversations, mutateConvs]);
 
   // Persist a message to DB synchronously (fire-and-forget for tokens, awaited for final)
   const persistMessage = useCallback(async (msg: Partial<ChatMessage>, convId?: string) => {
@@ -139,13 +148,15 @@ export default function AIPage() {
     const now = new Date();
     ctx.push(`当前日期: ${now.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "long" })} (YYYY-MM-DD: ${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")})`);
     const all = localMessages.current;
-    const recent = all.slice(-12);
-    if (recent.length > 0) {
-      ctx.push("对话历史（最近12条）:\n" + recent.map(m => `${m.role === "user" ? "👤用户" : "🤖AI"}: ${m.content.slice(0, 500)}`).join("\n"));
+    if (all.length > 0) {
+      ctx.push(`对话历史（共${all.length}条）:\n` + all.map(m => `${m.role === "user" ? "👤用户" : "🤖AI"}: ${m.content.slice(0, 500)}`).join("\n"));
     }
     if (tasks.length > 0) ctx.push(`当前任务: ${tasks.slice(0, 20).map(t => `[${t.id}] "${t.title}" (状态:${t.status}, 优先级:${t.priority}, 项目:${t.project.name})`).join("; ")}`);
     if (projects.length > 0) ctx.push(`当前项目: ${projects.slice(0, 10).map(p => `[${p.id}] "${p.name}" (${p.status})`).join("; ")}`);
-    if (milestones.length > 0) ctx.push(`里程碑: ${milestones.map(m => `[${m.id}] "${m.title}" (项目:${m.projectName}, 进度:${m.progress}%, 截止:${m.targetDate?.split("T")[0]})`).join("; ")}`);
+    if (summaries.length > 0) {
+      const ss = summaries as {date:string;content:string;workHours:number;mood:string}[];
+      ctx.push(`已有状态记录(${ss.length}条): ${ss.slice(0,14).map(s => `${s.date} ${s.workHours}h ${s.mood} ${s.content ? '"'+s.content.slice(0,80)+'"' : ""}`).join(" | ")}${ss.length>14?"...":""}`);
+    }
     return ctx.join("\n");
   };
 
@@ -168,7 +179,7 @@ export default function AIPage() {
     // 1. Persist user message (must be in DB before AI reads context)
     await persistMessage({ role: "user", content: text }, convId);
 
-    if (!geminiApiKey) {
+    if (!currentApiKey) {
       await persistMessage({ role: "ai", content: "请先在设置中填写 Gemini API Key。", error: "no_key" }, convId);
       setLoading(false);
       return;
@@ -183,7 +194,7 @@ export default function AIPage() {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: contextMsg, apiKey: geminiApiKey, model: geminiModel }),
+        body: JSON.stringify({ message: contextMsg, apiKey: currentApiKey, provider: aiProvider, model: aiModel }),
       });
 
       if (!res.ok || !res.body) {
@@ -274,37 +285,52 @@ export default function AIPage() {
         // Task queries
         if (entity === "task" || entity === "none") {
           let filtered = [...tasks];
-          // Status filter (from AI or from user text)
-          const statusMap: Record<string, string> = { "进行中": "in_progress", "待开始": "todo", "审查中": "review", "已完成": "done", "收件箱": "inbox" };
-          const userMentionedStatus = Object.entries(statusMap).find(([k]) => text.includes(k))?.[1];
+          // Status filter — only use AI-provided status, never guess from user text
           if (qd.status) filtered = filtered.filter(t => t.status === qd.status);
-          else if (userMentionedStatus) filtered = filtered.filter(t => t.status === userMentionedStatus);
-          else if (text.includes("进行中") || text.includes("正在")) filtered = filtered.filter(t => t.status === "in_progress" || t.status === "review");
           // Priority filter
-          const prioMap: Record<string, string> = { "紧急": "urgent", "高优先": "high", "低优先": "low", "中等": "medium" };
-          const userPrio = Object.entries(prioMap).find(([k]) => text.includes(k))?.[1];
           if (qd.priority) filtered = filtered.filter(t => t.priority === qd.priority);
-          else if (userPrio) filtered = filtered.filter(t => t.priority === userPrio);
-          // Tag filter (test #18: "有哪些Bug需要修")
+          // Tag filter
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if ((qd as any).tags && Array.isArray((qd as any).tags)) {
             filtered = filtered.filter(t => (qd as any).tags.some((tag: string) => t.tags?.includes(tag)));
-          } else if (text.includes("Bug") || text.includes("bug")) {
-            filtered = filtered.filter(t => t.tags?.includes("bug"));
           }
           // Project filter
-          const mentionedProject = projects.find(p => text.includes(p.name));
-          if (mentionedProject) filtered = filtered.filter(t => t.projectId === mentionedProject.id);
           if (qd.projectId) filtered = filtered.filter(t => t.projectId === qd.projectId || t.project?.name === qd.projectId);
 
           if (filtered.length > 0) {
-            result += `\n📋 任务 (${filtered.length} 个)：\n`;
-            const st: Record<string,string>={todo:"⏳待开始",in_progress:"🚧进行中",review:"🔍审查中",done:"✅已完成",inbox:"📥收件箱"};
-            for (const t of filtered.slice(0, 20)) {
-              const tags = t.tags?.length ? ` [${t.tags.join(",")}]` : "";
-              result += `  ${st[t.status]||t.status} ${t.title}（${t.priority==="urgent"?"紧急":t.priority==="high"?"高优先":t.priority==="low"?"低优先":"中"}，${t.project.name}）${tags}\n`;
+            // Group by project for multi-part questions
+            const projMap = new Map<string, { name: string; tasks: typeof filtered }>();
+            for (const t of filtered) {
+              const key = t.projectId;
+              if (!projMap.has(key)) projMap.set(key, { name: t.project.name, tasks: [] });
+              projMap.get(key)!.tasks.push(t);
             }
-            if (filtered.length > 20) result += `  ...还有 ${filtered.length - 20} 个任务\n`;
+            const st: Record<string,string>={todo:"⏳待开始",in_progress:"🚧进行中",review:"🔍审查中",done:"✅已完成",inbox:"📥收件箱"};
+
+            // If user explicitly asked for both in-progress AND completed, show all
+            const hasStatusFilter = !!qd.status;
+            if (!hasStatusFilter && projMap.size > 0) {
+              // Grouped by project, in-progress first then done
+              for (const [_, p] of projMap) {
+                const active = p.tasks.filter(t => t.status === "in_progress" || t.status === "review");
+                const done = p.tasks.filter(t => t.status === "done");
+                const other = p.tasks.filter(t => !["in_progress","review","done"].includes(t.status));
+                result += `\n${p.name} (${p.tasks.length} 个任务)`;
+                if (active.length > 0) { result += `\n  进行中: ${active.map(t => t.title).join("、")}`; }
+                if (done.length > 0) { result += `\n  已完成: ${done.map(t => t.title).join("、")}`; }
+                if (other.length > 0) { result += `\n  其他: ${other.map(t => `${st[t.status]||t.status} ${t.title}`).join("、")}`; }
+                result += "\n";
+              }
+            } else {
+              // Simple flat list for targeted queries
+              result += `\n📋 任务 (${filtered.length} 个)：\n`;
+              for (const t of filtered.slice(0, 20)) {
+                const tags = t.tags?.length ? ` [${t.tags.join(",")}]` : "";
+                const prio = t.priority==="urgent"?"紧急":t.priority==="high"?"高优先":t.priority==="low"?"低优先":"";
+                result += `  ${st[t.status]||t.status} ${t.title}${prio?"（"+prio+"）":""} · ${t.project.name}${tags}\n`;
+              }
+              if (filtered.length > 20) result += `  ...还有 ${filtered.length - 20} 个任务\n`;
+            }
           }
         }
         if (result) finalMsg.content = (finalReply || accumulated) + "\n\n" + result.trim();
@@ -350,44 +376,80 @@ export default function AIPage() {
     );
   };
 
+  /** Execute a single action, optionally collecting result instead of persisting. */
+  const executeOne = async (msgIdx: number, actionIdx: number, silent: boolean): Promise<string> => {
+    const msg = messages[msgIdx];
+    if (!msg) return "";
+    const actionList = getActions(msg);
+    const actionItem = actionList[actionIdx];
+    if (!actionItem || actionItem.executed) return "";
+
+    const { type, entity, data: raw } = actionItem;
+    // Strip empty values to prevent overwriting existing data
+    const d: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (v !== "" && v !== null && v !== undefined) d[k] = v;
+    }
+    optimisticMark(msgIdx, actionIdx);
+
+    try {
+      let result = "";
+      if (entity === "task") {
+        if (type === "create") { const projId = d.projectId ? resolveProjectId(d.projectId as string) : ""; const res = await api.createTask({ title: d.title || "新任务", content: d.content || "", projectId: projId, priority: d.priority || "medium", status: d.status || "todo", startDate: (d.startDate || d.beginDate || null) as string | null, dueDate: (d.dueDate || d.endDate || d.deadline || null) as string | null, tags: d.tags || [] }); result = `✅ 创建任务「${d.title}」`; }
+        else if (type === "update") { const id = d.id as string || findTask(d.title as string); if (!id) { result = `⚠ 找不到任务「${d.title}」`; } else { await api.updateTask(id, d); result = `✅ 更新任务「${d.title||id}」`; } }
+        else if (type === "delete") { const id = d.id as string || findTask(d.title as string); const taskName = d.title || tasks.find(t=>t.id===id)?.title || "任务"; if (!id) { result = `⚠ 找不到任务「${taskName}」`; } else { try { await api.deleteTask(id); result = `✅ 删除任务「${taskName}」`; } catch { result = `ℹ️ 任务已级联删除`; } } }
+      } else if (entity === "project") {
+        if (type === "create") { const res = await api.createProject({ name: d.name || "新项目", description: d.description || "", color: d.color || "#8B5CF6", status: d.status || "active", repoUrl: d.repoUrl || "", startDate: d.startDate || null, targetDate: d.targetDate || null }); freshProjectIds.current.set(d.name as string || "", res.id); result = `✅ 创建项目「${d.name}」`; }
+        else if (type === "update") { const id = d.id as string || findProj(d.name as string); if (!id) { result = `⚠ 找不到项目「${d.name}」`; } else { await api.updateProject(id, d); result = `✅ 更新项目「${d.name||id}」`; } }
+        else if (type === "delete") { const id = d.id as string || findProj(d.name as string); const projName = d.name || projects.find(p=>p.id===id)?.name || "项目"; if (!id) { result = `⚠ 找不到项目「${projName}」`; } else { try { await api.deleteProject(id); result = `✅ 删除项目「${projName}」`; } catch { result = `ℹ️ 项目已删除`; } } }
+      } else if (entity === "status") {
+        if (type === "create" || type === "update") {
+          const MOOD_MAP: Record<string, string> = { "累":"😩","疲劳":"😩","开心":"😊","高兴":"😊","专注":"💪","努力":"💪","困惑":"🤔","思考":"🤔","得意":"😎","满意":"😎","生气":"😤","不爽":"😤","放松":"🌴","休息":"🌴","创意":"🎨","灵感":"🎨","深入":"🧐","研究":"🧐","困":"😴","困倦":"😴","兴奋":"🤩","激动":"🤩" };
+          const rawMood = (d.mood as string) || "";
+          const mood = rawMood ? (MOOD_MAP[rawMood] || (/^[😊💪🤔😎😤🌴🎨🧐😴🤩😩]$/.test(rawMood) ? rawMood : "😊")) : "";
+          const dateStr = (d.date as string) || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`;
+          // Merge with existing record — preserve fields AI didn't specify
+          const existing = summaries.find((s: {date:string;content:string;workHours:number;mood:string}) => s.date === dateStr);
+          const finalContent = (d.content as string) || existing?.content || "";
+          const finalHours = d.workHours !== undefined ? (d.workHours as number) : (existing?.workHours ?? 0);
+          const finalMood = mood || existing?.mood || "";
+          await api.addDailySummary({ date: dateStr, content: finalContent, workHours: finalHours, mood: finalMood });
+          result = `✅ 已${existing ? "更新" : "记录"}${dateStr}状态`;
+        }
+      }
+      // Mark as executed in DB
+      if (msg.id) await fetch("/api/ai/history", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: msg.id, actionIndex: actionIdx }) });
+      return result;
+    } catch (e) { return `❌ 失败: ${e}`; }
+  };
+
   const execute = async (msgIdx: number, actionIdx: number = 0) => {
+    setLoading(true);
+    const result = await executeOne(msgIdx, actionIdx, false);
+    if (result) await persistMessage({ role: "ai", content: result });
+    mutateHistory();
+    await invalidateCaches();
+    setLoading(false);
+  };
+
+  const executeBatch = async (msgIdx: number) => {
     const msg = messages[msgIdx];
     if (!msg) return;
     const actionList = getActions(msg);
-    const actionItem = actionList[actionIdx];
-    if (!actionItem || actionItem.executed) return;
-
-    const { type, entity, data: d } = actionItem;
-
-    // Synchronous optimistic update — UI reflects instantly
-    optimisticMark(msgIdx, actionIdx);
+    const pending = actionList.filter(a => !a.executed && a.type !== "query");
+    if (pending.length === 0) return;
     setLoading(true);
-    try {
-      if (entity === "task") {
-        if (type === "create") { await api.createTask({ title: d.title || "新任务", content: d.content || "", projectId: resolveProjectId(d.projectId as string), priority: d.priority || "medium", status: d.status || "todo", startDate: (d.startDate || d.beginDate || null) as string | null, dueDate: (d.dueDate || d.endDate || d.deadline || null) as string | null, tags: d.tags || [] }); await persistMessage({ role: "ai", content: `✅ 已创建任务「${d.title}」` }); }
-        else if (type === "update") { const id = d.id as string || findTask(d.title as string); if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的任务", error: "not_found" }); setLoading(false); return; } await api.updateTask(id, d); await persistMessage({ role: "ai", content: `✅ 已更新任务` }); }
-        else if (type === "delete") { const id = d.id as string || findTask(d.title as string); const taskName = d.title || tasks.find(t=>t.id===id)?.title || "任务"; if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的任务", error: "not_found" }); setLoading(false); return; } await api.deleteTask(id); await persistMessage({ role: "ai", content: `✅ 已删除「${taskName}」` }); }
-      } else if (entity === "project") {
-        if (type === "create") { await api.createProject({ name: d.name || "新项目", description: d.description || "", color: d.color || "#8B5CF6", status: d.status || "active", repoUrl: d.repoUrl || "", startDate: d.startDate || null, targetDate: d.targetDate || null }); await persistMessage({ role: "ai", content: `✅ 已创建项目「${d.name}」` }); }
-        else if (type === "update") { const id = d.id as string || findProj(d.name as string); if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的项目", error: "not_found" }); setLoading(false); return; } await api.updateProject(id, d); await persistMessage({ role: "ai", content: `✅ 已更新项目` }); }
-        else if (type === "delete") { const id = d.id as string || findProj(d.name as string); const projName = d.name || projects.find(p=>p.id===id)?.name || "项目"; if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的项目", error: "not_found" }); setLoading(false); return; } await api.deleteProject(id); await persistMessage({ role: "ai", content: `✅ 已删除「${projName}」` }); }
-      } else if (entity === "status") {
-        if (type === "create" || type === "update") { await api.addDailySummary({ date: d.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`, content: d.content as string || "", workHours: (d.workHours as number) || 0, mood: d.mood as string || "😊" }); await persistMessage({ role: "ai", content: `✅ 已${type==="update"?"更新":"记录"}今日状态` }); }
-      } else if (entity === "milestone") {
-        if (type === "create") { await fetch("/api/milestones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: d.title, projectId: d.projectId, targetDate: d.targetDate, progress: d.progress || 0 }) }); await persistMessage({ role: "ai", content: `✅ 已创建里程碑「${d.title}」` }); }
-        else if (type === "update") { const id = d.id as string; if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的里程碑", error: "not_found" }); setLoading(false); return; } await fetch("/api/milestones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }); await persistMessage({ role: "ai", content: `✅ 已更新里程碑` }); }
-        else if (type === "delete") { const id = d.id as string; if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的里程碑", error: "not_found" }); setLoading(false); return; } await fetch(`/api/milestones?id=${id}`, { method: "DELETE" }); await persistMessage({ role: "ai", content: `✅ 已删除里程碑` }); }
-      }
-
-      // Mark action as executed in DB
-      if (msg.id) {
-        await fetch("/api/ai/history", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: msg.id, actionIndex: actionIdx }) });
-      }
-      mutateHistory();
-
-      // Refresh entity caches so next AI message sees the latest data
-      await invalidateCaches();
-    } catch (e) { await persistMessage({ role: "ai", content: `执行失败: ${e}`, error: String(e) }); }
+    freshProjectIds.current.clear();
+    const results: string[] = [];
+    for (const act of pending) {
+      const r = await executeOne(msgIdx, act._idx, true);
+      if (r) results.push(r);
+    }
+    // Single summary message
+    const summary = results.length > 0 ? `批量操作完成（${results.length} 项）：\n${results.map(r => `  ${r}`).join("\n")}` : "操作已完成";
+    await persistMessage({ role: "ai", content: summary });
+    mutateHistory();
+    await invalidateCaches();
     setLoading(false);
   };
 
@@ -434,6 +496,8 @@ export default function AIPage() {
   /** Resolve a project ID or name to an actual project ID for task creation. */
   function resolveProjectId(raw: string | undefined): string {
     if (!raw) return "";
+    // Check freshly created projects first (same batch)
+    if (freshProjectIds.current.has(raw)) return freshProjectIds.current.get(raw)!;
     // Direct ID match
     if (projects.some(p => p.id === raw)) return raw;
     // Name match
@@ -442,7 +506,7 @@ export default function AIPage() {
     // Partial match
     const s = raw.toLowerCase();
     const partial = projects.find(p => p.name.toLowerCase().includes(s));
-    return partial?.id || raw; // fallback to raw value (service will handle)
+    return partial?.id || raw;
   }
 
   const getActions = (msg: ChatMessage): (ActionType & { _idx: number })[] => {
@@ -457,7 +521,7 @@ export default function AIPage() {
 
   const actionLabel = (a: ActionType) => {
     const typeLabel = a.type === "create" ? "创建" : a.type === "update" ? "更新" : a.type === "delete" ? "删除" : "查询";
-    const entityLabel = a.entity === "task" ? " 任务" : a.entity === "project" ? " 项目" : a.entity === "status" ? " 状态" : a.entity === "milestone" ? " 里程碑" : "";
+    const entityLabel = a.entity === "task" ? " 任务" : a.entity === "project" ? " 项目" : a.entity === "status" ? " 状态" : "";
     return typeLabel + entityLabel;
   };
 
@@ -530,37 +594,72 @@ export default function AIPage() {
                       <Card className={msg.role === "user" ? "bg-primary text-primary-foreground" : ""}>
                         <CardContent className="p-3 text-sm whitespace-pre-wrap">{msg.content}</CardContent>
                       </Card>
-                      {actionList.filter(a => !a.executed && a.type !== "query").map((act) => (
-                        <Card key={act._idx} className="mt-2 border-amber-400/30 bg-amber-400/5">
-                          <CardContent className="p-3 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                              <span className="text-xs font-medium">
-                                {actionLabel(act)}{actionList.length > 1 ? ` (${act._idx + 1}/${actionList.length})` : ""}
-                              </span>
-                            </div>
-                            {act.data && Object.keys(act.data).filter(k => !['id','projectId'].includes(k)).length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(act.data).filter(([k]) => !['id','projectId'].includes(k)).map(([k, v]) => (
-                                  <Badge key={k} variant="outline" className="text-[10px]">
-                                    {k}: {typeof v === "string" ? v.slice(0, 40) : String(v).slice(0, 40)}
-                                  </Badge>
+                      {(() => {
+                        const pending = actionList.filter(a => !a.executed && a.type !== "query");
+                        if (pending.length === 0) return null;
+                        if (pending.length === 1) {
+                          const act = pending[0]!;
+                          return (
+                            <Card key={act._idx} className="mt-2 border-amber-400/30 bg-amber-400/5">
+                              <CardContent className="p-3 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                                  <span className="text-xs font-medium">{actionLabel(act)}</span>
+                                </div>
+                                {act.data && Object.keys(act.data).filter(k => !['id','projectId'].includes(k)).length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {Object.entries(act.data).filter(([k]) => !['id','projectId'].includes(k)).map(([k, v]) => (
+                                      <Badge key={k} variant="outline" className="text-[10px]">{k}: {typeof v === "string" ? v.slice(0, 40) : String(v).slice(0, 40)}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="flex gap-2">
+                                  <Button size="sm" className="h-7 text-[11px]" onClick={() => execute(i, act._idx)} disabled={loading}>
+                                    {loading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /></> : <><Check className="h-3 w-3 mr-1" /></>}执行
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => ignoreAction(i, act._idx)}>
+                                    <X className="h-3 w-3 mr-1" />忽略
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        }
+                        // Multiple actions → consolidated card
+                        return (
+                          <Card key="batch" className="mt-2 border-amber-400/30 bg-amber-400/5">
+                            <CardContent className="p-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                                <span className="text-xs font-medium">批量操作（{pending.length} 项）</span>
+                              </div>
+                              <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                {pending.map((act) => (
+                                  <div key={act._idx} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                    <span className="shrink-0 w-4 text-center">{act._idx + 1}.</span>
+                                    <span>{actionLabel(act)}</span>
+                                    {act.data && Object.keys(act.data).filter(k => !['id','projectId'].includes(k)).length > 0 && (
+                                      <span className="text-[10px]">
+                                        {Object.entries(act.data).filter(([k]) => !['id','projectId'].includes(k)).map(([k, v]) => `${k}:${String(v).slice(0, 20)}`).join("，")}
+                                      </span>
+                                    )}
+                                  </div>
                                 ))}
                               </div>
-                            )}
-                            <div className="flex gap-2">
-                              <Button size="sm" className="h-7 text-[11px]" onClick={() => execute(i, act._idx)} disabled={loading}>
-                                {loading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /></> : <><Check className="h-3 w-3 mr-1" /></>}执行
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => ignoreAction(i, act._idx)}>
-                                <X className="h-3 w-3 mr-1" />忽略
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                              <div className="flex gap-2">
+                                <Button size="sm" className="h-7 text-[11px]" onClick={() => executeBatch(i)} disabled={loading}>
+                                  {loading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /></> : <><Check className="h-3 w-3 mr-1" /></>}全部执行
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={async () => { for (const act of pending) { await ignoreAction(i, act._idx); } }}>
+                                  <X className="h-3 w-3 mr-1" />全部忽略
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })()}
                       {allExecuted && <p className="text-[10px] text-emerald-400 mt-1 ml-1">✓ 已执行</p>}
-                      {msg.executed && !msg.actions && <p className="text-[10px] text-emerald-400 mt-1 ml-1">✓ 已执行</p>}
+                      {msg.executed && actionList.length === 0 && <p className="text-[10px] text-emerald-400 mt-1 ml-1">✓ 已执行</p>}
                       {msg.error && <p className="text-[10px] text-red-400 mt-1 ml-1">⚠ {msg.error}</p>}
                     </div>
                     {msg.role === "user" && (
@@ -596,7 +695,7 @@ export default function AIPage() {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={settingsLoaded && !geminiApiKey ? "请先在设置中配置 API Key" : "描述你想做什么...（Enter 发送，Shift+Enter 换行）"}
+                placeholder={settingsLoaded && !currentApiKey ? "请先在设置中配置 API Key" : "描述你想做什么...（Enter 发送，Shift+Enter 换行）"}
                 className="flex-1 text-sm min-h-[40px] max-h-[160px] resize-none"
                 rows={1}
                 disabled={loading}
@@ -605,7 +704,7 @@ export default function AIPage() {
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            {settingsLoaded && !geminiApiKey && (
+            {settingsLoaded && !currentApiKey && (
               <div className="shrink-0 pb-3 text-center">
                 <Link href="/settings" className="text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
                   前往设置配置 API Key <ArrowRight className="h-3 w-3" />

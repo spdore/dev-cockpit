@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useUIStore, type FontSize } from "@/stores/ui-store";
+import { getAllProviders, type ProviderConfig } from "@/lib/ai-providers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Moon, Sun, Monitor, Palette, Type, Key } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Moon, Sun, Monitor, Palette, Type, Key, Bot } from "lucide-react";
 
 const THEME_OPTIONS = [
   { key: "light" as const, icon: Sun, label: "浅色模式", desc: "明亮的界面主题" },
@@ -20,17 +22,25 @@ const FONT_OPTIONS: { key: FontSize; label: string; sample: string }[] = [
   { key: "large", label: "大", sample: "Aa" },
 ];
 
+const ALL_PROVIDERS = getAllProviders();
+
+function apiKeyStateKey(provider: string): keyof ReturnType<typeof useUIStore.getState> {
+  return (provider + "ApiKey") as keyof ReturnType<typeof useUIStore.getState>;
+}
+
 export default function SettingsPage() {
-  const theme = useUIStore((s) => s.theme);
-  const setTheme = useUIStore((s) => s.setTheme);
-  const fontSize = useUIStore((s) => s.fontSize);
-  const setFontSize = useUIStore((s) => s.setFontSize);
-  const geminiApiKey = useUIStore((s) => s.geminiApiKey);
-  const setGeminiApiKey = useUIStore((s) => s.setGeminiApiKey);
-  const settingsLoaded = useUIStore((s) => s.settingsLoaded);
-  const [editingKey, setEditingKey] = useState(false);
+  const store = useUIStore();
+  const settingsLoaded = store.settingsLoaded;
+
+  // AI
+  const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [keyInput, setKeyInput] = useState("");
-  const maskedKey = geminiApiKey ? geminiApiKey.slice(0, 6) + "••••••••••••••••" + geminiApiKey.slice(-4) : "";
+
+  const currentProvider = ALL_PROVIDERS.find(p => p.key === store.aiProvider) || ALL_PROVIDERS[0]!;
+  const currentModel = store.aiModel || currentProvider.defaultModel;
+  const currentApiKey = (store[apiKeyStateKey(currentProvider.key)] as string) || "";
+
+  const maskedKey = currentApiKey ? currentApiKey.slice(0, 6) + "••••••••" + currentApiKey.slice(-4) : "";
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-2xl mx-auto">
@@ -48,10 +58,10 @@ export default function SettingsPage() {
         <CardContent>
           <div className="flex gap-2">
             {FONT_OPTIONS.map((opt) => {
-              const isActive = fontSize === opt.key;
+              const isActive = store.fontSize === opt.key;
               const sizeClass = opt.key === "small" ? "text-sm" : opt.key === "large" ? "text-lg" : "text-base";
               return (
-                <button key={opt.key} onClick={() => setFontSize(opt.key)}
+                <button key={opt.key} onClick={() => store.setFontSize(opt.key)}
                   className={`flex-1 flex flex-col items-center gap-1 rounded-lg border p-3 transition-colors hover:bg-muted/50 ${isActive ? "border-primary bg-primary/5" : "border-border"}`}>
                   <span className={sizeClass}>{opt.sample}</span>
                   <span className="text-xs">{opt.label}</span>
@@ -63,31 +73,65 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* API Key */}
+      {/* AI Provider */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm"><Key className="h-4 w-4" />Gemini API Key</CardTitle>
-          <CardDescription>密钥加密存储在本地，填写后无法查看</CardDescription>
+          <CardTitle className="flex items-center gap-2 text-sm"><Bot className="h-4 w-4" />AI 助手</CardTitle>
+          <CardDescription>选择 AI 提供商、模型和 API Key</CardDescription>
         </CardHeader>
-        <CardContent>
-          {!settingsLoaded ? (
-            <p className="text-xs text-muted-foreground">加载中...</p>
-          ) : geminiApiKey && !editingKey ? (
-            <div className="flex items-center gap-2">
-              <code className="flex-1 rounded bg-muted px-3 py-2 text-xs font-mono select-none">{maskedKey}</code>
-              <Button variant="ghost" size="sm" onClick={() => { setKeyInput(""); setEditingKey(true); }}>更换</Button>
-              <Button variant="ghost" size="sm" className="text-red-400" onClick={() => { if (confirm("确定清除 API Key？AI 助手将无法使用")) setGeminiApiKey(""); }}>清除</Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input type="password" placeholder="粘贴你的 Gemini API Key..." value={keyInput} onChange={e => setKeyInput(e.target.value)} className="flex-1 h-9 text-sm" />
-                <Button size="sm" onClick={() => { if (keyInput.trim()) { setGeminiApiKey(keyInput.trim()); setKeyInput(""); setEditingKey(false); } }}>保存</Button>
-                {geminiApiKey && <Button variant="ghost" size="sm" onClick={() => setEditingKey(false)}>取消</Button>}
+        <CardContent className="space-y-4">
+          {/* Provider selector */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">提供商</label>
+            <Select value={store.aiProvider} onValueChange={(v) => store.setAiProvider(v)}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ALL_PROVIDERS.map((p) => (
+                  <SelectItem key={p.key} value={p.key}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Model selector */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">模型</label>
+            <Select value={currentModel} onValueChange={(v) => store.setAiModel(v)}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {currentProvider.models.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* API Key */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{currentProvider.apiKeyLabel}</label>
+            {!settingsLoaded ? (
+              <p className="text-xs text-muted-foreground">加载中...</p>
+            ) : currentApiKey && editingProvider !== currentProvider.key ? (
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded bg-muted px-3 py-2 text-xs font-mono select-none">{maskedKey}</code>
+                <Button variant="ghost" size="sm" onClick={() => { setKeyInput(""); setEditingProvider(currentProvider.key); }}>更换</Button>
+                <Button variant="ghost" size="sm" className="text-red-400" onClick={() => { if (confirm("确定清除 API Key？")) store.setApiKey(currentProvider.key, ""); }}>清除</Button>
               </div>
-              <p className="text-[10px] text-muted-foreground">在 <a href="https://aistudio.google.com/apikey" target="_blank" className="underline">aistudio.google.com/apikey</a> 免费获取</p>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input type="password" placeholder={`粘贴 ${currentProvider.apiKeyLabel}...`} value={keyInput} onChange={e => setKeyInput(e.target.value)} className="flex-1 h-9 text-sm" />
+                  <Button size="sm" onClick={() => { if (keyInput.trim()) { store.setApiKey(currentProvider.key, keyInput.trim()); setKeyInput(""); setEditingProvider(null); } }}>保存</Button>
+                  {currentApiKey && <Button variant="ghost" size="sm" onClick={() => { setEditingProvider(null); setKeyInput(""); }}>取消</Button>}
+                </div>
+                <p className="text-[10px] text-muted-foreground">{currentProvider.apiKeyHelp}</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -101,11 +145,11 @@ export default function SettingsPage() {
           {THEME_OPTIONS.map((opt) => {
             const Icon = opt.icon;
             return (
-              <button key={opt.key} onClick={() => setTheme(opt.key)}
-                className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 ${theme === opt.key ? "border-primary bg-primary/5" : "border-border"}`}>
+              <button key={opt.key} onClick={() => store.setTheme(opt.key)}
+                className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 ${store.theme === opt.key ? "border-primary bg-primary/5" : "border-border"}`}>
                 <Icon className="h-5 w-5 text-muted-foreground" />
                 <div className="flex-1"><p className="text-sm font-medium">{opt.label}</p><p className="text-xs text-muted-foreground">{opt.desc}</p></div>
-                {theme === opt.key && <Badge className="text-[10px]">当前</Badge>}
+                {store.theme === opt.key && <Badge className="text-[10px]">当前</Badge>}
               </button>
             );
           })}

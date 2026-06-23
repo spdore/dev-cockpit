@@ -10,7 +10,6 @@ import type {
   Project,
   ProjectRef,
   Task,
-  Milestone,
   Achievement,
   DailySummary,
   Conversation,
@@ -115,24 +114,6 @@ export function mapActiveTask(row: Record<string, unknown>): ActiveTask {
     title:  String(row.title ?? ""),
     status: String(row.status ?? "todo") as ActiveTask["status"],
     dueDate: (row.due_date as string) ?? undefined,
-  };
-}
-
-/** Map a milestone row (with joined project fields) to a Milestone entity. */
-export function mapMilestone(row: Record<string, unknown>): Milestone {
-  const targetDate = String(row.target_date ?? "");
-  const daysLeft = targetDate
-    ? Math.ceil((new Date(targetDate).getTime() - Date.now()) / 86400000)
-    : 0;
-  return {
-    id:           String(row.id ?? ""),
-    projectId:    String(row.project_id ?? ""),
-    projectName:  String(row.project_name ?? ""),
-    projectColor: String(row.project_color ?? "#6B7280"),
-    title:        String(row.title ?? ""),
-    targetDate,
-    daysLeft,
-    progress:     Number(row.progress ?? 0),
   };
 }
 

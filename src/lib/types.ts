@@ -42,11 +42,6 @@ export interface Achievement {
   unlockedAt: string | null;
 }
 
-export interface Milestone {
-  id: string; projectId: string; projectName: string; projectColor: string;
-  title: string; targetDate: string; daysLeft: number; progress: number;
-}
-
 export interface ActiveTask {
   id: string; priority: string;
   project: ProjectRef;

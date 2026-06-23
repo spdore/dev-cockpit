@@ -14,7 +14,7 @@ import { ActiveTasksTable } from "@/components/dashboard/active-tasks-table";
 import { getWeekNumber } from "@/lib/constants";
 
 export default function DashboardPage() {
-  const { todayTasks, weekStats, statusStats, heatmapData, achievements, activeTasks, milestones, isLoading, mutate } = useDashboard();
+  const { todayTasks, weekStats, statusStats, heatmapData, achievements, activeTasks, isLoading, mutate } = useDashboard();
   const weekNum = getWeekNumber();
   const refresh = useCallback(() => mutate(), [mutate]);
 

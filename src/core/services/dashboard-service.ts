@@ -10,7 +10,6 @@ import type { TaskRepository } from "@/core/repositories/task-repository";
 import type { ProjectRepository } from "@/core/repositories/project-repository";
 import type { AchievementRepository } from "@/core/repositories/achievement-repository";
 import type { DailySummaryRepository } from "@/core/repositories/daily-summary-repository";
-import type { MilestoneRepository } from "@/core/repositories/milestone-repository";
 import { toLocalDateString } from "@/shared/date-utils";
 import type {
   DashboardData,
@@ -28,7 +27,6 @@ export class DashboardService {
     private readonly projectRepo: ProjectRepository,
     private readonly achievementRepo: AchievementRepository,
     private readonly dailySummaryRepo: DailySummaryRepository,
-    private readonly milestoneRepo: MilestoneRepository,
   ) {}
 
   /** Aggregate all dashboard data from repositories. */
@@ -45,7 +43,6 @@ export class DashboardService {
       heatmapData:   this.buildHeatmap(allTasks),
       achievements:  this.achievementRepo.findAll(),
       activeTasks:   this.buildActiveTasks(allTasks),
-      milestones:    this.milestoneRepo.findAll(),
     };
   }
 

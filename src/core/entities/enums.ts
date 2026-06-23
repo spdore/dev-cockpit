@@ -48,5 +48,5 @@ export function isActionType(value: unknown): value is ActionType {
 
 // ── AI Entity Types ──
 
-export const ENTITY_TYPES = ["project", "task", "status", "milestone", "none"] as const;
+export const ENTITY_TYPES = ["project", "task", "status", "none"] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];

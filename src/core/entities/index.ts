@@ -155,40 +155,6 @@ export interface UpdateTaskInput {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Milestone
-// ═══════════════════════════════════════════════════════════════════════
-
-/** Full milestone entity returned by the API. */
-export interface Milestone {
-  id: string;
-  projectId: string;
-  projectName: string;
-  projectColor: string;
-  title: string;
-  /** ISO-8601 date string. */
-  targetDate: string;
-  /** Days remaining until target. */
-  daysLeft: number;
-  /** Progress percentage (0-100). */
-  progress: number;
-}
-
-export interface CreateMilestoneInput {
-  projectId: string;
-  title: string;
-  targetDate: string;
-  progress?: number;
-}
-
-export interface UpdateMilestoneInput {
-  id: string;
-  projectId?: string;
-  title?: string;
-  targetDate?: string;
-  progress?: number;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
 // Achievement
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -309,5 +275,4 @@ export interface DashboardData {
   heatmapData: HeatmapDay[];
   achievements: Achievement[];
   activeTasks: ActiveTask[];
-  milestones: Milestone[];
 }
