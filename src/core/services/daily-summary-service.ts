@@ -4,13 +4,14 @@
 
 import type { DailySummaryRepository } from "@/core/repositories/daily-summary-repository";
 import type { StatusStats, DailySummaryInput } from "@/core/entities";
+import { toLocalDateString } from "@/shared/date-utils";
 
 export class DailySummaryService {
   constructor(private readonly summaryRepo: DailySummaryRepository) {}
 
   /** Get today's status + all summaries (for journal page). */
   getStatusStats(): StatusStats {
-    const todayStr = new Date().toISOString().split("T")[0]!;
+    const todayStr = toLocalDateString(new Date());
     const today = this.summaryRepo.findByDate(todayStr);
     const weekSummaries = this.summaryRepo.findAll();
 

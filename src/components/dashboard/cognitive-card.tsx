@@ -23,7 +23,7 @@ export function CognitiveCard({ stats, onAddSummary }: StatusCardProps) {
   const [hours, setHours] = useState("");
   const [mood, setMood] = useState("😊");
 
-  const handleSubmit = () => { if (!content.trim()) return; onAddSummary?.({ date: new Date().toISOString().split("T")[0]!, content, workHours: parseFloat(hours) || 0, mood }); setContent(""); setHours(""); setMood("😊"); setShowDialog(false); };
+  const handleSubmit = () => { if (!content.trim()) return; onAddSummary?.({ date: `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`, content, workHours: parseFloat(hours) || 0, mood }); setContent(""); setHours(""); setMood("😊"); setShowDialog(false); };
 
   const todayMood = stats.todaySummary?.mood || "📝";
   const { days: weekDays, totalWeekHours, maxHours: maxH } = useWeekChart(stats.weekSummaries);

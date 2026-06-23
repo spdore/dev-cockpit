@@ -11,6 +11,7 @@ import type { ProjectRepository } from "@/core/repositories/project-repository";
 import type { AchievementRepository } from "@/core/repositories/achievement-repository";
 import type { DailySummaryRepository } from "@/core/repositories/daily-summary-repository";
 import type { MilestoneRepository } from "@/core/repositories/milestone-repository";
+import { toLocalDateString } from "@/shared/date-utils";
 import type {
   DashboardData,
   Task,
@@ -50,7 +51,7 @@ export class DashboardService {
 
   /** Check today's work hours and auto-unlock matching achievements. */
   private checkDailyHourAchievements(): void {
-    const todayStr = new Date().toISOString().split("T")[0]!;
+    const todayStr = toLocalDateString(new Date());
     const today = this.dailySummaryRepo.findByDate(todayStr);
     const todayHours = today?.workHours ?? 0;
     if (todayHours <= 0) return;
@@ -104,7 +105,7 @@ export class DashboardService {
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     // Today's project activity
-    const today = now.toISOString().split("T")[0]!;
+    const today = toLocalDateString(now);
     const todayProjects = new Map<string, { projectId: string; projectName: string; projectColor: string; completedToday: number }>();
     for (const t of tasks) {
       if (t.status === "done" && t.completedAt?.startsWith(today)) {
@@ -146,7 +147,7 @@ export class DashboardService {
     for (let i = 89; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0]!;
+      const dateStr = toLocalDateString(d);
       const hours = hoursMap.get(dateStr) || 0;
       // Continuous 0–1 level based on hours relative to max
       const level = hours > 0 ? Math.min(hours / Math.max(maxHours, 8), 1) : 0;
@@ -158,7 +159,7 @@ export class DashboardService {
   /** Build cognitive status stats from daily summaries. */
   private buildStatusStats(): StatusStats {
     const today = new Date();
-    const todayStr = today.toISOString().split("T")[0]!;
+    const todayStr = toLocalDateString(today);
     const todaySummary = this.dailySummaryRepo.findByDate(todayStr);
 
     // Calculate current week Monday–Sunday
@@ -167,8 +168,8 @@ export class DashboardService {
     monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    const weekStart = monday.toISOString().split("T")[0]!;
-    const weekEnd = sunday.toISOString().split("T")[0]!;
+    const weekStart = toLocalDateString(monday);
+    const weekEnd = toLocalDateString(sunday);
 
     const weekSummaries = this.dailySummaryRepo.findByDateRange(weekStart, weekEnd);
     const workHoursToday = todaySummary?.workHours ?? 0;

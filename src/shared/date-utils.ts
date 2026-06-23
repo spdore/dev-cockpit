@@ -24,7 +24,7 @@ export interface WeekDay {
  */
 export function getCurrentWeekDays(): WeekDay[] {
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0]!;
+  const todayStr = toLocalDateString(now);
   const dayOfWeek = now.getDay(); // 0=Sun
 
   // Monday of current week
@@ -35,7 +35,7 @@ export function getCurrentWeekDays(): WeekDay[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const dateStr = d.toISOString().split("T")[0]!;
+    const dateStr = toLocalDateString(d);
     days.push({
       date: dateStr,
       label: WEEKDAY_LABELS[i]!,
@@ -97,7 +97,7 @@ export function buildHeatmapGrid(
   // Fill days of the month
   const lastDay = new Date(year, month, 0);
   for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-    const ds = d.toISOString().split("T")[0]!;
+    const ds = toLocalDateString(d);
     currentRow.push(dateMap.get(ds) ?? { date: ds, count: 0, level: 0 });
     if (currentRow.length === 7) {
       result.push(currentRow);
@@ -120,6 +120,11 @@ export function buildHeatmapGrid(
 // Formatting
 // ═══════════════════════════════════════════════════════════
 
+/** Format a Date as YYYY-MM-DD in local time (no timezone shift). */
+export function toLocalDateString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 /** Format a Date as a Chinese locale date string. */
 export function formatDateCN(date: Date = new Date()): string {
   return date.toLocaleDateString("zh-CN", {
@@ -132,7 +137,7 @@ export function formatDateCN(date: Date = new Date()): string {
 
 /** Get today's date as YYYY-MM-DD string. */
 export function todayString(): string {
-  return new Date().toISOString().split("T")[0]!;
+  return toLocalDateString(new Date());
 }
 
 /** Compute days between two date strings. */

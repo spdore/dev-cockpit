@@ -137,7 +137,7 @@ export default function AIPage() {
   const buildContext = () => {
     const ctx: string[] = [];
     const now = new Date();
-    ctx.push(`当前日期: ${now.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "long" })} (YYYY-MM-DD: ${now.toISOString().split("T")[0]})`);
+    ctx.push(`当前日期: ${now.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "long" })} (YYYY-MM-DD: ${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")})`);
     const all = localMessages.current;
     const recent = all.slice(-12);
     if (recent.length > 0) {
@@ -372,7 +372,7 @@ export default function AIPage() {
         else if (type === "update") { const id = d.id as string || findProj(d.name as string); if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的项目", error: "not_found" }); setLoading(false); return; } await api.updateProject(id, d); await persistMessage({ role: "ai", content: `✅ 已更新项目` }); }
         else if (type === "delete") { const id = d.id as string || findProj(d.name as string); const projName = d.name || projects.find(p=>p.id===id)?.name || "项目"; if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的项目", error: "not_found" }); setLoading(false); return; } await api.deleteProject(id); await persistMessage({ role: "ai", content: `✅ 已删除「${projName}」` }); }
       } else if (entity === "status") {
-        if (type === "create" || type === "update") { await api.addDailySummary({ date: d.date as string || new Date().toISOString().split("T")[0]!, content: d.content as string || "", workHours: (d.workHours as number) || 0, mood: d.mood as string || "😊" }); await persistMessage({ role: "ai", content: `✅ 已${type==="update"?"更新":"记录"}今日状态` }); }
+        if (type === "create" || type === "update") { await api.addDailySummary({ date: d.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`, content: d.content as string || "", workHours: (d.workHours as number) || 0, mood: d.mood as string || "😊" }); await persistMessage({ role: "ai", content: `✅ 已${type==="update"?"更新":"记录"}今日状态` }); }
       } else if (entity === "milestone") {
         if (type === "create") { await fetch("/api/milestones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: d.title, projectId: d.projectId, targetDate: d.targetDate, progress: d.progress || 0 }) }); await persistMessage({ role: "ai", content: `✅ 已创建里程碑「${d.title}」` }); }
         else if (type === "update") { const id = d.id as string; if (!id) { await persistMessage({ role: "ai", content: "找不到匹配的里程碑", error: "not_found" }); setLoading(false); return; } await fetch("/api/milestones", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }); await persistMessage({ role: "ai", content: `✅ 已更新里程碑` }); }

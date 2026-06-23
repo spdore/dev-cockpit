@@ -16,7 +16,7 @@ const MOODS = ["😊","💪","🤔","😎","😤","🌴","🎨","🧐","😴","�
 export default function JournalPage() {
   const { data: statusData, mutate } = useSWR("daily-summary", api.getDailySummaries);
   const summaries: Summary[] = statusData?.weekSummaries ?? [];
-  const today = new Date().toISOString().split("T")[0]!;
+  const today = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`;
 
   const [editing, setEditing] = useState<Summary | null>(null);
   const [content, setContent] = useState("");

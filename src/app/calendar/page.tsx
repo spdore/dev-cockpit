@@ -158,7 +158,7 @@ function WeekView({ year, weekOffset, tasks }: { year: number; weekOffset: numbe
 
   // Only show days with activity
   const activeDays = allDays.filter(d=>{
-    const ds=d.toISOString().split("T")[0]!;
+    const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     return tasks.some(t=>(t.createdAt&&t.createdAt.startsWith(ds))||(t.completedAt&&t.completedAt.startsWith(ds))||(t.dueDate&&t.dueDate.startsWith(ds)));
   });
 
@@ -167,7 +167,7 @@ function WeekView({ year, weekOffset, tasks }: { year: number; weekOffset: numbe
   return (
     <div className="space-y-2">
       {activeDays.map(d=>{
-        const ds=d.toISOString().split("T")[0]!;
+        const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
         const dayTasks = tasks.filter(t=>(t.createdAt&&t.createdAt.startsWith(ds))||(t.completedAt&&t.completedAt.startsWith(ds))||(t.dueDate&&t.dueDate.startsWith(ds)));
 
         // Group by project
