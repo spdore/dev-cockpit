@@ -83,7 +83,7 @@ export default function SettingsPage() {
           {/* Provider selector */}
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">提供商</label>
-            <Select value={store.aiProvider} onValueChange={(v) => store.setAiProvider(v)}>
+            <Select value={store.aiProvider} onValueChange={(v) => { store.setAiProvider(v); const p = ALL_PROVIDERS.find(x => x.key === v); if (p) store.setAiModel(p.defaultModel); }}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue />
               </SelectTrigger>

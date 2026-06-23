@@ -32,12 +32,14 @@ function decrypt(encoded: string): string {
 export class SettingsService {
   constructor(private readonly settingsRepo: SettingsRepository) {}
 
+  /** Setting keys that contain sensitive API keys. */
+  private readonly API_KEY_KEYS = ["geminiApiKey", "openaiApiKey", "claudeApiKey", "deepseekApiKey", "qwenApiKey"];
+
   /** Get all settings, decrypting sensitive values. */
   getAllSettings(): Record<string, string> {
     const raw = this.settingsRepo.findAll();
-    // Decrypt API key if present
-    if (raw.geminiApiKey) {
-      raw.geminiApiKey = decrypt(raw.geminiApiKey);
+    for (const key of this.API_KEY_KEYS) {
+      if (raw[key]) raw[key] = decrypt(raw[key]);
     }
     return raw;
   }
@@ -45,8 +47,8 @@ export class SettingsService {
   /** Persist settings, encrypting sensitive values. */
   saveSettings(settings: Record<string, string>): void {
     const toSave = { ...settings };
-    if (toSave.geminiApiKey) {
-      toSave.geminiApiKey = encrypt(toSave.geminiApiKey);
+    for (const key of this.API_KEY_KEYS) {
+      if (toSave[key]) toSave[key] = encrypt(toSave[key]);
     }
     this.settingsRepo.saveBatch(toSave);
   }
