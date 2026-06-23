@@ -96,16 +96,16 @@ export default function AIPage() {
 
   // No auto-creation — let user start their first conversation manually
 
-  /** Generate a conversation title from the first user message using Gemini. */
+  /** Generate a conversation title — uses Gemini free tier as lightweight utility. */
   const autoTitle = useCallback(async (convId: string, firstMessage: string) => {
-    if (!currentApiKey || !firstMessage.trim()) return;
+    const titleKey = geminiApiKey || currentApiKey; // prefer Gemini key, fallback to current
+    if (!titleKey || !firstMessage.trim()) return;
     const conv = conversations.find(c => c.id === convId);
-    // Only auto-title if the title is still generic
     if (!conv || !/^(新对话|对话 \d+)$/.test(conv.title)) return;
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(currentApiKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(titleKey)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -126,7 +126,7 @@ export default function AIPage() {
         mutateConvs();
       }
     } catch { /* non-critical */ }
-  }, [currentApiKey, conversations, mutateConvs]);
+  }, [geminiApiKey, currentApiKey, conversations, mutateConvs]);
 
   // Persist a message to DB synchronously (fire-and-forget for tokens, awaited for final)
   const persistMessage = useCallback(async (msg: Partial<ChatMessage>, convId?: string) => {
