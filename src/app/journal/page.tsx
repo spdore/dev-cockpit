@@ -31,7 +31,7 @@ export default function JournalPage() {
 
   const filtered = summaries.filter(s => {
     if (moodFilter && s.mood !== moodFilter) return false;
-    if (monthOffset !== 0 && !s.date.startsWith(refStr)) return false;
+    if (!s.date.startsWith(refStr)) return false;
     return true;
   });
 
