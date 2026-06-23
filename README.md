@@ -76,26 +76,36 @@ A single-page overview of your day:
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- A [Gemini API Key](https://aistudio.google.com/apikey) (for AI features)
 
-### Installation
+- **Node.js 18+**
+- **Git**
+- **Gemini API Key** — free at [Google AI Studio](https://aistudio.google.com/apikey)
+
+#### Platform-specific build tools
+
+`better-sqlite3` is a native C++ module. Most systems have prebuilt binaries and `npm install` just works, but if you hit a compilation error:
+
+| Platform | Install |
+|----------|---------|
+| **Linux (Debian/Ubuntu)** | `sudo apt install build-essential python3` |
+| **Linux (Fedora/RHEL)** | `sudo dnf install gcc-c++ make python3` |
+| **macOS** | `xcode-select --install` |
+| **Windows** | Prebuilt binaries are usually downloaded automatically. If not, install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the "Desktop development with C++" workload. |
+
+### Install & Run
 
 ```bash
 git clone https://github.com/spdore/dev-cockpit.git
 cd dev-cockpit
 npm install
-```
-
-### Configuration
-
-```bash
 npm run dev
 ```
 
-Open `http://localhost:3000` → go to **Settings** → paste your Gemini API Key.
+Open the URL printed in the terminal (default **http://localhost:3000**), go to **Settings**, and paste your Gemini API Key to enable AI features.
 
-The database and all tables are automatically created on first launch. The database starts empty — you build it your way from day one.
+> **Note**: If port 3000 is already in use, Next.js will silently switch to 3001. Always check the terminal output for the actual address. You do **not** need to create a `.env` file — the API key is stored in your local database.
+
+The database and all tables are automatically created when the first API request arrives. The database starts empty — you build it your way from day one.
 
 ### Database
 
@@ -103,6 +113,27 @@ The database file lives at `database/dev-cockpit.db` and is ignored by Git. The 
 
 - To **start fresh**, delete `database/dev-cockpit.db` and restart the server.
 - To **back up**, copy the `database/` folder.
+
+---
+
+## Troubleshooting
+
+### `better-sqlite3` fails to compile
+
+See the [platform-specific build tools](#platform-specific-build-tools) section above. Make sure your C++ toolchain is installed, then retry:
+
+```bash
+npm rebuild better-sqlite3
+```
+
+### Can't connect to localhost:3000
+
+Check the terminal — if port 3000 was busy, Next.js prints the fallback port (e.g. "using available port 3001 instead").
+
+### AI features not working
+
+- Verify your Gemini API Key is correct and has available quota at [Google AI Studio](https://aistudio.google.com/apikey).
+- Make sure the key is saved in **Settings** (not just pasted — click Save).
 
 ---
 
@@ -155,7 +186,7 @@ src/
 | `README.md` | English documentation (this file) |
 | `README_ZH.md` | Chinese documentation |
 | `DEVCOCKPIT_SPEC.md` | Data model reference & AI import workflow (bilingual) |
-| `database/schema.sql` | Database schema — auto-executed on first launch |
+| `database/schema.sql` | Database schema — auto-executed on first request |
 
 ## License
 

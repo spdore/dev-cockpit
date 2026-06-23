@@ -74,26 +74,36 @@
 ## 快速开始
 
 ### 环境要求
-- Node.js 18+
-- Gemini API Key（用于 AI 功能，在 [Google AI Studio](https://aistudio.google.com/apikey) 免费获取）
 
-### 安装
+- **Node.js 18+**
+- **Git**
+- **Gemini API Key** — 在 [Google AI Studio](https://aistudio.google.com/apikey) 免费获取
+
+#### 各平台编译依赖
+
+`better-sqlite3` 是原生 C++ 模块，大多数情况下 `npm install` 会自动下载预编译二进制，无需额外操作。如果遇到编译错误：
+
+| 平台 | 安装命令 |
+|------|----------|
+| **Linux (Debian/Ubuntu)** | `sudo apt install build-essential python3` |
+| **Linux (Fedora/RHEL)** | `sudo dnf install gcc-c++ make python3` |
+| **macOS** | `xcode-select --install` |
+| **Windows** | 通常会自动下载预编译版本。如失败，安装 [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)，勾选"使用 C++ 的桌面开发"工作负载。 |
+
+### 安装与启动
 
 ```bash
 git clone https://github.com/spdore/dev-cockpit.git
 cd dev-cockpit
 npm install
-```
-
-### 配置
-
-```bash
 npm run dev
 ```
 
-浏览器打开 `http://localhost:3000` → 进入 **设置** 页面 → 粘贴 Gemini API Key。
+浏览器打开终端输出的地址（默认 **http://localhost:3000**），进入 **设置** 页面粘贴 Gemini API Key 即可启用 AI 功能。
 
-首次启动时自动创建数据库和所有表结构。数据库从空开始，由你亲手构建。
+> **注意**：如果 3000 端口被占用，Next.js 会自动切换到 3001，请以终端实际输出为准。无需手动创建 `.env` 文件，API Key 存储在本地数据库中。
+
+数据库和所有表在首个 API 请求到达时自动创建。数据库从空开始，由你亲手构建。
 
 ### 数据库
 
@@ -101,6 +111,27 @@ npm run dev
 
 - **重新开始**：删除 `database/dev-cockpit.db`，重启服务即可。
 - **备份数据**：复制 `database/` 目录即可。
+
+---
+
+## 常见问题
+
+### `better-sqlite3` 编译失败
+
+先确认已安装对应平台的编译工具（见上方[各平台编译依赖](#各平台编译依赖)），然后重试：
+
+```bash
+npm rebuild better-sqlite3
+```
+
+### 连不上 localhost:3000
+
+检查终端输出——如果 3000 端口被占用，Next.js 会打印提示 "using available port 3001 instead"，实际端口以终端为准。
+
+### AI 功能不工作
+
+- 确认 Gemini API Key 填写正确且有可用配额（在 [Google AI Studio](https://aistudio.google.com/apikey) 查看）。
+- 在 **设置** 页面粘贴 Key 后务必点击保存。
 
 ---
 
@@ -153,7 +184,7 @@ src/
 | `README.md` | 英文文档 |
 | `README_ZH.md` | 中文文档（本文件） |
 | `DEVCOCKPIT_SPEC.md` | 数据结构规范 & AI 导入模板（中英双语） |
-| `database/schema.sql` | 数据库建表脚本，首次启动时自动执行 |
+| `database/schema.sql` | 数据库建表脚本，首个请求时自动执行 |
 
 ## 许可证
 
