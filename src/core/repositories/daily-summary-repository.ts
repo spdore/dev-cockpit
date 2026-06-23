@@ -23,6 +23,14 @@ export class DailySummaryRepository extends BaseRepository {
     return rows.map(mapDailySummary);
   }
 
+  /** Get summaries within a date range (inclusive). */
+  findByDateRange(startDate: string, endDate: string): DailySummary[] {
+    const rows = this.db
+      .prepare("SELECT * FROM daily_summaries WHERE date >= ? AND date <= ? ORDER BY date ASC")
+      .all(startDate, endDate) as Record<string, unknown>[];
+    return rows.map(mapDailySummary);
+  }
+
   /** Insert or replace a daily summary (upsert). */
   upsert(input: DailySummaryInput): string {
     const id = `ds-${input.date}`;

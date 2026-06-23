@@ -157,10 +157,20 @@ export class DashboardService {
 
   /** Build cognitive status stats from daily summaries. */
   private buildStatusStats(): StatusStats {
-    const todaySummary = this.dailySummaryRepo.findByDate(
-      new Date().toISOString().split("T")[0]!
-    );
-    const weekSummaries = this.dailySummaryRepo.findRecent(7);
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0]!;
+    const todaySummary = this.dailySummaryRepo.findByDate(todayStr);
+
+    // Calculate current week Monday–Sunday
+    const dayOfWeek = today.getDay(); // 0=Sun
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const weekStart = monday.toISOString().split("T")[0]!;
+    const weekEnd = sunday.toISOString().split("T")[0]!;
+
+    const weekSummaries = this.dailySummaryRepo.findByDateRange(weekStart, weekEnd);
     const workHoursToday = todaySummary?.workHours ?? 0;
 
     return {
